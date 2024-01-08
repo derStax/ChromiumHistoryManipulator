@@ -100,7 +100,9 @@ namespace ChromiumHistoryManipulator {
                     dataGrid.DataSource = _dT;
                 }
                 */
-                SQLiteDataAdapter data = new("SELECT * FROM visits", connection);
+                SQLiteDataAdapter data = new("SELECT v.id as VID, u.title, u.url as URL," +
+                    "datetime(v.visit_time / 1000000 + (strftime('%s', '1601-01-01')), 'unixepoch', 'localtime')" +
+                    "FROM visits AS v JOIN urls AS u ON v.url == u.id ", connection);
                 data.Fill(_dT);
                 dataGrid.DataSource = _dT;
                 connection.Close();
@@ -283,30 +285,23 @@ namespace ChromiumHistoryManipulator {
                  * 
                  */
                 long urlId = -1;
-                using(SQLiteCommand cmd = new(connection)) {
-                    cmd.CommandText = $"SELECT * FROM urls WHERE \"{urlText.Text}\" = url;";
-                    using(System.Data.SQLite.SQLiteDataReader dr = cmd.ExecuteReader()) {
-                        while(dr.Read()) {
-                            urlId = (long) dr["id"];
-                        }
-                    }
-                }
-                Console.WriteLine(urlId + " is " + urlText.Text + " urls ID.");
-                if(urlId == -1) { // create new url entry
-                    List<long> urlIDs = new();
-                    using(SQLiteCommand cmd = new SQLiteCommand(connection)) {
-                        cmd.CommandText = "SELECT * FROM urls";
-                        using(SQLiteDataReader reader = cmd.ExecuteReader()) {
-                            while(reader.Read()) {
-                                urlIDs.Add((long) reader["id"]);
-                            }
-                        }
-                    }
-                    urlId = GetNewURLID(urlIDs);
-                    using (SQLiteCommand cmd = new(connection)) {
-                        cmd.CommandText = 
-                            $"INSERT INTO urls VALUES ({urlId}, \"{urlText.Text}\", \"{titleText.Text}\", 1, 0, {GetTimeFromInput(dateValue, minuteText, hourText)}, 0);";
 
+                // if URL is already inside table, use that URL ID
+                using(SQLiteCommand cmd = new($"SELECT id FROM urls WHERE \"{urlText.Text}\" = url;", connection))
+                    using(System.Data.SQLite.SQLiteDataReader dr = cmd.ExecuteReader())
+                        while(dr.Read())
+                            urlId = (long) dr["id"];
+                // if URL is not in table, create new URL entry and use new ID
+                if(urlId == -1) { 
+                    List<long> urlIDs = new();
+                    using(SQLiteCommand cmd = new SQLiteCommand("SELECT id FROM urls", connection))
+                        using(SQLiteDataReader reader = cmd.ExecuteReader())
+                            while(reader.Read())
+                                urlIDs.Add((long) reader["id"]);
+                    urlId = GetNewURLID(urlIDs);
+                    string quer = $"INSERT INTO urls VALUES ({urlId}, \"{urlText.Text}\", \"{titleText.Text}\", 1, 0, {GetTimeFromInput(dateValue, minuteText, hourText)}, 0);";
+                    using(SQLiteCommand cmd = new(quer, connection)) {
+                        cmd.ExecuteReader();
                     }
                 }
                 
@@ -316,8 +311,7 @@ namespace ChromiumHistoryManipulator {
                     $"SET title = '{titleText.Text}', " +
                     $"    visit_time = {time}," +
                     $"    url = {urlId}"; /// URL CHANGE
-                    using(SQLiteCommand cmd = new(connection)) {
-                        cmd.CommandText = quer2;
+                    using(SQLiteCommand cmd = new(quer2, connection)) {
                         cmd.ExecuteReader();
                     }
                 }

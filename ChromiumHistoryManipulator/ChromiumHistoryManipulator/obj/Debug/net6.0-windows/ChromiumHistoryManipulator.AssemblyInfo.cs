@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ChromiumHistoryManipulator")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4c7ddb019a4f5f585c1c6a21fe86da9ad345e03b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b57d0e3f2f5303a1f691e82eb6e11022dc59d745")]
 [assembly: System.Reflection.AssemblyProductAttribute("ChromiumHistoryManipulator")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ChromiumHistoryManipulator")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
