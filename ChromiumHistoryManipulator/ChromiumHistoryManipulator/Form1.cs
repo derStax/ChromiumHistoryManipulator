@@ -4,6 +4,7 @@ using System.Data.SQLite;
 using System.IO;
 using System.Globalization;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
+using System.Data.SqlClient;
 
 namespace ChromiumHistoryManipulator {
     public partial class MainForm : Form {
@@ -40,7 +41,7 @@ namespace ChromiumHistoryManipulator {
             } else if(minuteText.Text.Length == 0) {
                 minuteText.Text = "00";
             }
-            
+
             if(hourText.Text.Length == 1) {
                 hourText.Text = "0" + hourText.Text;
             } else if(hourText.Text.Length == 0) {
@@ -244,7 +245,7 @@ namespace ChromiumHistoryManipulator {
         private void SetupUpdateHistory(DataRow r) {
             urlText.Text = r["url"].ToString();
             titleText.Text = r["title"].ToString();
-            long x = (long)r["visit_time"] * 10;
+            long x = (long) r["visit_time"] * 10;
             DateTime dt = DateTime.FromFileTime(x);
             int m = dt.Minute;
             int h = dt.Hour;
@@ -256,6 +257,22 @@ namespace ChromiumHistoryManipulator {
             hourText.Text = h.ToString();
             SetTimeWith00();
         }
+
+        private long urlIDCalculator = 0;
+        public long GetNewURLID(List<long> urlIDs) {
+            bool reCheck = false;
+            for(int i = 0; i < urlIDs.Count; i++) {
+                if(urlIDCalculator == urlIDs[i]) {
+                    urlIDCalculator++;
+                    reCheck = true;
+                }
+            }
+            if(reCheck) {
+                return GetNewURLID(urlIDs);
+            }
+            return urlIDCalculator;
+        }
+
         private void UpdateHistory() {
             using(var connection = new SQLiteConnection("data source=" + _dbPath)) {
                 connection.Open();
@@ -265,18 +282,46 @@ namespace ChromiumHistoryManipulator {
                  * 
                  * 
                  */
+                long urlId = -1;
+                using(SQLiteCommand cmd = new(connection)) {
+                    cmd.CommandText = $"SELECT * FROM urls WHERE \"{urlText.Text}\" = url;";
+                    using(System.Data.SQLite.SQLiteDataReader dr = cmd.ExecuteReader()) {
+                        while(dr.Read()) {
+                            urlId = (long) dr["id"];
+                        }
+                    }
+                }
+                Console.WriteLine(urlId + " is " + urlText.Text + " urls ID.");
+                if(urlId == -1) { // create new url entry
+                    List<long> urlIDs = new();
+                    using(SQLiteCommand cmd = new SQLiteCommand(connection)) {
+                        cmd.CommandText = "SELECT * FROM urls";
+                        using(SQLiteDataReader reader = cmd.ExecuteReader()) {
+                            while(reader.Read()) {
+                                urlIDs.Add((long) reader["id"]);
+                            }
+                        }
+                    }
+                    urlId = GetNewURLID(urlIDs);
+                    using (SQLiteCommand cmd = new(connection)) {
+                        cmd.CommandText = 
+                            $"INSERT INTO urls VALUES ({urlId}, \"{urlText.Text}\", \"{titleText.Text}\", 1, 0, {GetTimeFromInput(dateValue, minuteText, hourText)}, 0);";
 
+                    }
+                }
+                
                 long time = GetTimeFromInput(dateValue, minuteText, hourText);
                 if(ValidInput(time)) {
                     string quer2 = $"UPDATE visits " +
                     $"SET title = '{titleText.Text}', " +
                     $"    visit_time = {time}," +
-                    $"    "; /// URL CHANGE
+                    $"    url = {urlId}"; /// URL CHANGE
                     using(SQLiteCommand cmd = new(connection)) {
                         cmd.CommandText = quer2;
                         cmd.ExecuteReader();
                     }
                 }
+                
                 connection.Close();
             }
         }
@@ -397,7 +442,7 @@ namespace ChromiumHistoryManipulator {
                         break;
 
                     case 2: // delete
-                        
+
                         break;
 
                     default:
